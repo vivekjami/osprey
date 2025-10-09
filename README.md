@@ -19,35 +19,7 @@ Osprey asks: Is the data semantically valid?
 
 
 ## Agent Communication Flow
-
-```mermaid
-sequenceDiagram
-    participant BQ as BigQuery
-    participant SG as Schema Guardian
-    participant AD as Anomaly Detective
-    participant PO as Pipeline Orchestrator
-    participant FT as Fivetran API
-    participant AI as Vertex AI Gemini
-    
-    BQ->>SG: Query schema metadata
-    SG->>SG: Compare against baseline
-    
-    BQ->>AD: Sample latest data
-    AD->>AI: Request semantic analysis
-    AI->>AD: Return anomaly report
-    
-    SG->>PO: Send schema alert
-    AD->>PO: Send anomaly alert
-    
-    PO->>PO: Evaluate decision logic
-    
-    alt Critical Anomaly
-        PO->>FT: Pause connector
-        PO->>BQ: Quarantine data
-    else Safe Change
-        PO->>PO: Log and continue
-    end
-```
+![Agent Communication Flow](assets/agent_communication_flow.png)
 
 ## Decision Logic
 
