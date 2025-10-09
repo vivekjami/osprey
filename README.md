@@ -15,40 +15,8 @@ Traditional monitoring asks: Did the sync succeed?
 Osprey asks: Is the data semantically valid?
 
 ## System Architecture
+![System Architecture](assets/system_architecture.png)
 
-```mermaid
-graph TB
-    subgraph "Data Ingestion"
-        A[Financial News API] --> B[Fivetran Connector]
-        B --> C[BigQuery: raw_news]
-    end
-    
-    subgraph "Intelligence Layer"
-        C --> D[Agent 1: Schema Guardian]
-        C --> E[Agent 2: Anomaly Detective]
-        D --> F[Agent 3: Pipeline Orchestrator]
-        E --> F
-        G[Vertex AI Gemini] --> E
-        H[BigQuery ML] --> E
-    end
-    
-    subgraph "Action Layer"
-        F --> I[Fivetran API]
-        F --> J[Data Quarantine]
-        F --> K[Alerts]
-    end
-    
-    subgraph "Monitoring"
-        F --> L[Agent Memory]
-        L --> M[Dashboard]
-    end
-    
-    style D fill:#2563eb,stroke:#1e40af,color:#fff
-    style E fill:#2563eb,stroke:#1e40af,color:#fff
-    style F fill:#dc2626,stroke:#b91c1c,color:#fff
-    style G fill:#16a34a,stroke:#15803d,color:#fff
-    style H fill:#16a34a,stroke:#15803d,color:#fff
-```
 
 ## Agent Communication Flow
 
