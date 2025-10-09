@@ -83,30 +83,8 @@ sequenceDiagram
 
 ## Decision Logic
 
-```mermaid
-flowchart TD
-    A[Receive Alerts] --> B{Schema Change?}
-    B -->|Critical Type Change| C[PAUSE_AND_ALERT]
-    B -->|Safe Change| D{Anomaly?}
-    B -->|No Change| D
-    
-    D -->|Confidence > 85%| E{Type?}
-    D -->|Confidence < 85%| F[FLAG_FOR_REVIEW]
-    D -->|No Anomaly| G[CONTINUE]
-    
-    E -->|Test Data| H[QUARANTINE_AND_ROLLBACK]
-    E -->|Outlier| F
-    
-    C --> I[Execute Actions]
-    H --> I
-    F --> I
-    G --> I
-    
-    style C fill:#dc2626,stroke:#b91c1c,color:#fff
-    style H fill:#dc2626,stroke:#b91c1c,color:#fff
-    style F fill:#f59e0b,stroke:#d97706,color:#fff
-    style G fill:#16a34a,stroke:#15803d,color:#fff
-```
+![Decision Logic](assets/decision_logic.png)
+
 
 ## Agent Implementations
 
