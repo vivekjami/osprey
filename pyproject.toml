@@ -4,4 +4,17 @@ version = "0.1.0"
 description = "Multi-Agent Data Quality Guardian"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "fivetran-connector-sdk>=2.2.1",
+    "google-cloud-aiplatform>=1.120.0",
+    "google-cloud-bigquery>=3.38.0",
+    "google-cloud-firestore>=2.21.0",
+    "pandas>=2.3.3",
+    "pydantic>=2.12.0",
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.2.0",
+    "python-dotenv>=1.1.1",
+    "requests>=2.32.5",
+    "ruff>=0.14.0",
+    "uvicorn>=0.37.0",
+]
