@@ -1,0 +1,7 @@
+[project]
+name = "osprey"
+version = "0.1.0"
+description = "Multi-Agent Data Quality Guardian"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
