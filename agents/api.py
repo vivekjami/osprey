@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from agents.agent_memory import AgentMemory
+from agents.anomaly_detective import AnomalyDetective
 
 app = FastAPI(
     title="Osprey Agent API",
@@ -36,14 +37,59 @@ except Exception as e:
     print("API will run with limited functionality until Firestore is set up")
     memory = None
 
+# Initialize Anomaly Detective and Orchestrator
+detective = None
+orchestrator = None
+
+@app.on_event("startup")
+async def startup_event():
+    global detective, orchestrator
+    try:
+        detective = AnomalyDetective(
+            project_id=os.getenv("PROJECT_ID"),
+            dataset_id=os.getenv("DATASET_ID"),
+            table_id=os.getenv("TABLE_ID")
+        )
+        print("✅ Anomaly Detective initialized successfully")
+    except Exception as e:
+        print(f"⚠️  Warning: Could not initialize Anomaly Detective: {e}")
+        detective = None
+    
+    # Initialize Orchestrator
+    try:
+        from agents.pipeline_orchestrator import PipelineOrchestrator
+        orchestrator = PipelineOrchestrator(
+            project_id=os.getenv("PROJECT_ID"),
+            dataset_id=os.getenv("DATASET_ID"),
+            table_id=os.getenv("TABLE_ID"),
+            connector_id=os.getenv("FIVETRAN_CONNECTOR_ID")
+        )
+        print("✅ Pipeline Orchestrator initialized successfully")
+    except Exception as e:
+        print(f"⚠️  Warning: Could not initialize Orchestrator: {e}")
+        orchestrator = None
+
 
 @app.get("/")
 def root():
     return {
         "name": "Osprey Agent API",
-        "version": "1.0.0",
+        "version": "2.0.0",
         "status": "operational",
-        "endpoints": ["/api/status", "/api/alerts", "/api/health", "/api/agent/{agent_name}"]
+        "agents": ["Schema Guardian", "Anomaly Detective", "Pipeline Orchestrator"],
+        "endpoints": [
+            "/api/status", 
+            "/api/alerts", 
+            "/api/health", 
+            "/api/agent/{agent_name}",
+            "/api/anomaly/check",
+            "/api/anomaly/status",
+            "/api/orchestrator/decision",
+            "/api/orchestrator/decisions",
+            "/api/orchestrator/status",
+            "/api/orchestrator/metrics",
+            "/api/orchestrator/summary"
+        ]
     }
 
 
@@ -201,6 +247,176 @@ def get_agent_logs(agent_name: str, limit: int = Query(default=20, ge=1, le=100)
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving logs: {str(e)}")
+
+
+@app.get("/api/anomaly/check")
+def check_anomalies():
+    """Run anomaly detection on latest data"""
+    if detective is None:
+        return {
+            "error": "Anomaly Detective not initialized",
+            "message": "Check server logs for initialization errors",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    
+    try:
+        result = detective.run_check()
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error running anomaly check: {str(e)}")
+
+
+@app.get("/api/anomaly/status")
+def anomaly_status():
+    """Get anomaly detection status"""
+    return {
+        "agent": "Anomaly Detective",
+        "status": "running" if detective else "not_initialized",
+        "model": "gemini-2.0-flash-exp",
+        "sample_size": 20,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+
+
+# ===== ORCHESTRATOR ENDPOINTS (NEW) =====
+
+@app.post("/api/orchestrator/decision")
+def trigger_orchestration():
+    """
+    Manually trigger orchestration cycle
+    
+    Returns decision made and actions taken
+    """
+    if orchestrator is None:
+        raise HTTPException(
+            status_code=503, 
+            detail="Pipeline Orchestrator not initialized"
+        )
+    
+    try:
+        result = orchestrator.orchestrate()
+        return {
+            "success": True,
+            "orchestration": result,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Orchestration failed: {str(e)}"
+        )
+
+
+@app.get("/api/orchestrator/decisions")
+def get_decision_history(
+    limit: int = Query(default=10, ge=1, le=50)
+):
+    """
+    Get recent decision history
+    
+    Query params:
+        limit: Number of decisions to return (1-50, default 10)
+    """
+    if orchestrator is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Pipeline Orchestrator not initialized"
+        )
+    
+    try:
+        decisions = orchestrator.get_decision_history(limit=limit)
+        
+        return {
+            "decisions": decisions,
+            "count": len(decisions),
+            "limit": limit,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving decisions: {str(e)}"
+        )
+
+
+@app.get("/api/orchestrator/status")
+def get_orchestrator_status():
+    """Get orchestrator status and metrics"""
+    if orchestrator is None:
+        return {
+            "status": "not_initialized",
+            "message": "Orchestrator not initialized - check server logs",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    
+    try:
+        status = orchestrator.get_status()
+        return {
+            "success": True,
+            "status": status,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving status: {str(e)}"
+        )
+
+
+@app.get("/api/orchestrator/metrics")
+def get_orchestrator_metrics():
+    """Get orchestrator performance metrics"""
+    if orchestrator is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Pipeline Orchestrator not initialized"
+        )
+    
+    try:
+        status = orchestrator.get_status()
+        metrics = status.get("metrics", {})
+        
+        # Add decision breakdown
+        decision_engine = orchestrator.decision_engine
+        decision_metrics = decision_engine.calculate_metrics()
+        
+        return {
+            "metrics": {
+                **metrics,
+                "decision_breakdown": decision_metrics.get("by_action", {}),
+                "priority_breakdown": decision_metrics.get("by_priority", {}),
+                "avg_confidence": decision_metrics.get("avg_confidence", 0.0)
+            },
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving metrics: {str(e)}"
+        )
+
+
+@app.get("/api/orchestrator/summary")
+def get_orchestrator_summary():
+    """Get executive summary of orchestrator activity"""
+    if orchestrator is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Pipeline Orchestrator not initialized"
+        )
+    
+    try:
+        summary = orchestrator.generate_summary()
+        
+        return {
+            "summary": summary,
+            "timestamp": datetime.utcnow().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generating summary: {str(e)}"
+        )
 
 
 if __name__ == "__main__":
